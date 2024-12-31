@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Данные из базы данных</title>
+    <link rel="icon" href="{{ url_for('static', filename='game-console.ico') }}" type="image/x-icon">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .filter-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 200px; /* Ширина поля ввода */
+        }
+
+        /* Стили для канваса */
+        #myChart {
+            max-width: 100%; /* Максимальная ширина - 100% */
+            height: 50vh; /* Высота - 50% от высоты окна */
+            margin: auto;
+        }
+
+        /* Стили для кнопки */
+        .home-button {
+            display: block;
+            width: 200px; /* Ширина кнопки */
+            padding: 10px;
+            margin: 20px auto;
+            text-align: center;
+            background-color: #4CAF50; /* Цвет фона кнопки */
+            color: white; /* Цвет текста */
+            border: none; /* Без границы */
+            border-radius: 5px; /* Закругленные углы */
+            font-size: 16px; /* Размер шрифта */
+            cursor: pointer; /* Указатель курсора */
+            text-decoration: none; /* Убираем подчеркивание */
+        }
+
+        .home-button:hover {
+            background-color: #45a049; /* Цвет фона при наведении */
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>Данные из базы данных</h1>
+    <div class="filter-container">
+        <label for="dateFilter">Фильтр по дате (YYYY-MM-DD):</label>
+        <input type="text" id="dateFilter" placeholder="2024-11-12" oninput="filterData()">
+    </div>
+    <table id="dataTable">
+        <tr>
+            <th>Используемая команда</th>
+            <th>Дата</th>
+            <th>Сообщение</th>
+        </tr>
+        {% for row in data %}
+            <tr>
+                <td>{{ row[1] }}</td>
+                <td>{{ row[2] }}</td>
+                <td>{{ row[3] }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+
+    <!-- Элемент для отображения гистограммы -->
+    <canvas id="myChart"></canvas>
+
+    <!-- Кнопка возврата на главную страницу -->
+    <a href="/dashboard" class="home-button">Вернуться на главную страницу</a>
+    <p></p>
+
+    <script>
+        let originalData = []; // Массив для хранения оригинальных данных
+        let chart; // Переменная для хранения экземпляра графика
+
+        function init() {
+            const table = document.getElementById('dataTable');
+            const rows = table.getElementsByTagName('tr');
+
+            // Сохраняем оригинальные данные
+            for (let i = 1; i < rows.length; i++) { // начинаем с 1, чтобы пропустить заголовок
+                const cells = rows[i].getElementsByTagName('td');
+                if (cells.length > 0) {
+                    originalData.push({
+                        command: cells[0].textContent,
+                        date: cells[1].textContent,
+                        message: cells[2].textContent
+                    });
+                }
+            }
+
+            // Инициализируем гистограмму с первоначальными данными
+            updateChart(originalData);
+        }
+
+        function filterData() {
+            const input = document.getElementById('dateFilter');
+            const filter = input.value.trim();
+
+            // Фильтруем данные по дате
+            const filteredData = originalData.filter(row => row.date.startsWith(filter));
+
+            // Обновляем таблицу с отфильтрованными данными
+            updateTable(filteredData);
+
+            // Обновляем гистограмму с отфильтрованными данными
+            updateChart(filteredData);
+        }
+
+        function updateTable(data) {
+            const table = document.getElementById('dataTable');
+
+            // Удаляем все строки, кроме заголовка
+            while (table.rows.length > 1) {
+                table.deleteRow(1);
+            }
+
+            // Добавляем отфильтрованные данные в таблицу
+            data.forEach(row => {
+                const newRow = table.insertRow();
+                newRow.insertCell(0).textContent = row.command;
+                newRow.insertCell(1).textContent = row.date;
+                newRow.insertCell(2).textContent = row.message;
+            });
+        }
+
+        function updateChart(data) {
+            const labels = [...new Set(data.map(item => item.command))]; // Уникальные команды
+            const counts = labels.map(label => data.filter(item => item.command === label).length); // Подсчет количества
+
+            if (chart) {
+                chart.destroy(); // Уничтожаем предыдущий график
+            }
+
+            const ctx = document.getElementById('myChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Количество использований команд',
+                        data: counts,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        window.onload = init; // Инициализация при загрузке страницы
+    </script>
+</body>
+
+<footer class="text-center mt-4">
+    <p>© 2024 Let's play. Все права защищены.</p>
+</footer>
+</html>
