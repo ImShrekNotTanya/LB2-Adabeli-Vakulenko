@@ -1,0 +1,7 @@
+ Flask
+ python-telegram-bot
+ dotenv
+ yookassa
+ json
+ requests
+ logging
